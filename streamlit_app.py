@@ -84,6 +84,7 @@ def inject_styles() -> None:
 
         .account-shell,
         .overview-shell,
+        .stats-shell,
         .empty-state {
             background: var(--card);
             backdrop-filter: blur(18px);
@@ -93,7 +94,13 @@ def inject_styles() -> None:
         }
 
         .overview-shell {
-            padding: 1.2rem 1.4rem 1.3rem 1.4rem;
+            padding: 0.95rem 1.2rem;
+            margin-bottom: 0.9rem;
+            min-height: 112px;
+        }
+
+        .stats-shell {
+            padding: 1.1rem 1.25rem 1.2rem 1.25rem;
             margin-bottom: 1rem;
         }
 
@@ -113,16 +120,17 @@ def inject_styles() -> None:
 
         .overview-row {
             display: flex;
-            align-items: end;
+            align-items: start;
             justify-content: space-between;
             gap: 1rem;
-            margin-bottom: 0.8rem;
+            margin-bottom: 0.45rem;
             flex-wrap: wrap;
         }
 
         .overview-title,
         .account-name,
-        .section-title {
+        .section-title,
+        .stats-title {
             font-family: 'Barlow Condensed', sans-serif;
             text-transform: uppercase;
             line-height: 0.94;
@@ -130,8 +138,13 @@ def inject_styles() -> None:
         }
 
         .overview-title {
-            font-size: clamp(2rem, 4vw, 3.1rem);
-            max-width: 10ch;
+            font-size: clamp(1.45rem, 2.4vw, 2rem);
+            max-width: 12ch;
+        }
+
+        .stats-title {
+            font-size: clamp(2.1rem, 4vw, 3rem);
+            margin-bottom: 0.35rem;
         }
 
         .account-name {
@@ -145,7 +158,8 @@ def inject_styles() -> None:
 
         .overview-copy,
         .account-copy,
-        .section-copy {
+        .section-copy,
+        .stats-copy {
             color: var(--muted);
             line-height: 1.65;
             margin: 0;
@@ -168,10 +182,10 @@ def inject_styles() -> None:
         }
 
         div[data-testid='stMetric'] {
-            background: rgba(255,255,255,0.86);
+            background: rgba(255,255,255,0.9);
             border: 1px solid var(--line);
             border-radius: var(--radius-lg);
-            padding: 0.85rem 1rem;
+            padding: 1rem 1.05rem;
             box-shadow: 0 12px 30px rgba(16,16,16,0.05);
         }
 
@@ -179,11 +193,12 @@ def inject_styles() -> None:
             font-family: 'Barlow Condensed', sans-serif;
             text-transform: uppercase;
             letter-spacing: 0.08em;
+            font-size: 0.95rem;
         }
 
         div[data-testid='stMetricValue'] {
             font-family: 'Barlow Condensed', sans-serif;
-            font-size: 1.9rem;
+            font-size: 2.35rem;
         }
 
         div[data-testid='stForm'],
@@ -399,11 +414,8 @@ def render_account_panel(current_user: dict[str, object] | None) -> None:
             st.rerun()
 
 
-def render_overview(current_user: dict[str, object], stats: dict[str, object], unit: str) -> None:
+def render_overview(current_user: dict[str, object], unit: str) -> None:
     unit_label = 'mi' if unit == 'Miles' else 'km'
-    total_distance = convert_distance_from_km(float(stats['total_distance_km']), unit)
-    weekly_distance = convert_distance_from_km(float(stats['weekly_mileage_km']), unit)
-
     st.markdown(
         f"""
         <div class='overview-shell'>
@@ -414,7 +426,24 @@ def render_overview(current_user: dict[str, object], stats: dict[str, object], u
                 </div>
                 <div class='mini-pill'>{unit_label} mode</div>
             </div>
-            <p class='overview-copy'>Your current block at a glance. Log a session fast, then keep moving through the feed below.</p>
+            <p class='overview-copy'>Log a session fast and keep your block moving.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_stats_summary(stats: dict[str, object], unit: str) -> None:
+    unit_label = 'mi' if unit == 'Miles' else 'km'
+    total_distance = convert_distance_from_km(float(stats['total_distance_km']), unit)
+    weekly_distance = convert_distance_from_km(float(stats['weekly_mileage_km']), unit)
+
+    st.markdown(
+        """
+        <div class='stats-shell'>
+            <div class='eyebrow'>Training Summary</div>
+            <div class='stats-title'>Current Block</div>
+            <p class='stats-copy'>Your key numbers, with more weight up front.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -475,10 +504,10 @@ def main() -> None:
         if current_user is None:
             st.markdown(
                 """
-                <div class='overview-shell'>
+                <div class='stats-shell'>
                     <div class='eyebrow'>Daily Movement System</div>
-                    <div class='overview-title'>Run Fresh. Track Clean.</div>
-                    <p class='overview-copy'>A sharp training space built for quick logging, focused stats, and less friction. Sign in from the account panel to unlock your dashboard.</p>
+                    <div class='stats-title'>Run Fresh. Track Clean.</div>
+                    <p class='stats-copy'>A sharp training space built for quick logging, focused stats, and less friction. Sign in from the account panel to unlock your dashboard.</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -486,7 +515,8 @@ def main() -> None:
         else:
             try:
                 stats = client.get_stats(user_id=current_user['id'])
-                render_overview(current_user, stats, st.session_state.distance_unit)
+                render_overview(current_user, st.session_state.distance_unit)
+                render_stats_summary(stats, st.session_state.distance_unit)
             except ApiError as exc:
                 st.error(f'Could not load stats: {exc}')
     with top_right:
