@@ -4,6 +4,9 @@ substitutions:
   _API_SERVICE: running-tracker-api
   _WEB_SERVICE: running-tracker-web
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 steps:
 - name: python:3.11-slim
   entrypoint: /bin/sh
