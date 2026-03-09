@@ -1,0 +1,76 @@
+substitutions:
+  _REGION: us-west4
+  _AR_REPO: running-tracker
+  _API_SERVICE: running-tracker-api
+  _WEB_SERVICE: running-tracker-web
+
+steps:
+- name: python:3.11-slim
+  entrypoint: /bin/sh
+  args:
+  - -c
+  - |
+    pip install --no-cache-dir -r requirements.txt
+    pytest -q
+
+- name: gcr.io/cloud-builders/docker
+  args:
+  - build
+  - -f
+  - Dockerfile
+  - -t
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_API_SERVICE}:$COMMIT_SHA
+  - .
+
+- name: gcr.io/cloud-builders/docker
+  args:
+  - build
+  - -f
+  - Dockerfile.web
+  - -t
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_WEB_SERVICE}:$COMMIT_SHA
+  - .
+
+- name: gcr.io/cloud-builders/docker
+  args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_API_SERVICE}:$COMMIT_SHA']
+
+- name: gcr.io/cloud-builders/docker
+  args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_WEB_SERVICE}:$COMMIT_SHA']
+
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  entrypoint: gcloud
+  args:
+  - run
+  - deploy
+  - ${_API_SERVICE}
+  - --image
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_API_SERVICE}:$COMMIT_SHA
+  - --region
+  - ${_REGION}
+  - --platform
+  - managed
+  - --allow-unauthenticated
+  - --service-account
+  - rt-runtime@$PROJECT_ID.iam.gserviceaccount.com
+  - --set-env-vars
+  - GOOGLE_CLOUD_PROJECT=$PROJECT_ID,ENVIRONMENT=production
+  - --set-secrets
+  - SECRET_KEY=app-secret-key:latest
+
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  entrypoint: /bin/bash
+  args:
+  - -c
+  - |
+    API_URL=$(gcloud run services describe ${_API_SERVICE} --region ${_REGION} --format='value(status.url)')
+    gcloud run deploy ${_WEB_SERVICE} \
+      --image ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_WEB_SERVICE}:$COMMIT_SHA \
+      --region ${_REGION} \
+      --platform managed \
+      --allow-unauthenticated \
+      --service-account rt-runtime@$PROJECT_ID.iam.gserviceaccount.com \
+      --set-env-vars RUNNING_TRACKER_API_URL=$API_URL,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,ENVIRONMENT=production
+
+images:
+- ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_API_SERVICE}:$COMMIT_SHA
+- ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_WEB_SERVICE}:$COMMIT_SHA
