@@ -65,14 +65,14 @@ steps:
   args:
   - -c
   - |
-    API_URL=$(gcloud run services describe ${_API_SERVICE} --region ${_REGION} --format='value(status.url)')
+    API_URL=$$(gcloud run services describe ${_API_SERVICE} --region ${_REGION} --format='value(status.url)')
     gcloud run deploy ${_WEB_SERVICE} \
       --image ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_WEB_SERVICE}:$COMMIT_SHA \
       --region ${_REGION} \
       --platform managed \
       --allow-unauthenticated \
       --service-account rt-runtime@$PROJECT_ID.iam.gserviceaccount.com \
-      --set-env-vars RUNNING_TRACKER_API_URL=$API_URL,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,ENVIRONMENT=production
+      --set-env-vars RUNNING_TRACKER_API_URL=$$API_URL,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,ENVIRONMENT=production
 
 images:
 - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_API_SERVICE}:$COMMIT_SHA
