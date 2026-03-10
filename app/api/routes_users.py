@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.database.db import get_db
-from app.schemas.user_schema import UserCreate, UserPasswordReset, UserRead, UserSignIn
+from app.schemas.user_schema import UserCreate, UserGoalsUpdate, UserPasswordReset, UserRead, UserSignIn
 from app.services.user_service import UserService
 
 router = APIRouter(prefix='/users', tags=['users'])
@@ -22,6 +22,12 @@ def sign_in(payload: UserSignIn, db = Depends(get_db)) -> UserRead:
 @router.post('/reset-password', response_model=UserRead)
 def reset_password(payload: UserPasswordReset, db = Depends(get_db)) -> UserRead:
     user = UserService(db).reset_password(payload)
+    return UserRead.model_validate(user)
+
+
+@router.put('/{user_id}/goals', response_model=UserRead)
+def update_goals(user_id: str, payload: UserGoalsUpdate, db = Depends(get_db)) -> UserRead:
+    user = UserService(db).update_goals(user_id, payload)
     return UserRead.model_validate(user)
 
 

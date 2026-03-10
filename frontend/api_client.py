@@ -51,6 +51,9 @@ class RunningTrackerApiClient:
     def reset_password(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._request('POST', '/api/v1/users/reset-password', json=payload)
 
+    def update_goals(self, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._request('PUT', f'/api/v1/users/{user_id}/goals', json=payload)
+
     def list_runs(self, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         return self._request('GET', '/api/v1/runs', params=params)
 

@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
-from app.schemas.user_schema import UserCreate, UserPasswordReset, UserSignIn
+from app.schemas.user_schema import UserCreate, UserGoalsUpdate, UserPasswordReset, UserSignIn
 from app.security.passwords import hash_password, verify_password
 
 
@@ -37,6 +37,20 @@ class UserService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='User not found')
 
         user.password_hash = hash_password(payload.new_password)
+        return self.repo.update(user)
+
+    def update_goals(self, user_id: str, payload: UserGoalsUpdate) -> User:
+        user = self.repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='User not found')
+
+        if payload.goal_weekly_distance_km is not None:
+            user.goal_weekly_distance_km = payload.goal_weekly_distance_km
+        if payload.goal_avg_pace_seconds is not None:
+            user.goal_avg_pace_seconds = payload.goal_avg_pace_seconds
+        if payload.goal_training_frequency is not None:
+            user.goal_training_frequency = payload.goal_training_frequency
+
         return self.repo.update(user)
 
     def list_users(self) -> list[User]:

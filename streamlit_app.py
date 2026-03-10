@@ -94,19 +94,19 @@ def inject_styles() -> None:
         }
 
         .overview-shell {
-            padding: 0.95rem 1.2rem;
-            margin-bottom: 0.9rem;
-            min-height: 112px;
+            padding: 0.7rem 1rem;
+            margin-bottom: 0.7rem;
+            min-height: 88px;
         }
 
         .stats-shell {
-            padding: 1.1rem 1.25rem 1.2rem 1.25rem;
-            margin-bottom: 1rem;
+            padding: 0.9rem 1.05rem 1rem 1.05rem;
+            margin-bottom: 0.8rem;
         }
 
         .account-shell {
-            padding: 1rem 1.1rem;
-            min-height: 148px;
+            padding: 0.8rem 1rem;
+            min-height: 120px;
         }
 
         .eyebrow,
@@ -138,22 +138,22 @@ def inject_styles() -> None:
         }
 
         .overview-title {
-            font-size: clamp(1.45rem, 2.4vw, 2rem);
-            max-width: 12ch;
+            font-size: clamp(1.2rem, 2vw, 1.6rem);
+            max-width: 16ch;
         }
 
         .stats-title {
-            font-size: clamp(2.1rem, 4vw, 3rem);
-            margin-bottom: 0.35rem;
+            font-size: clamp(1.6rem, 3vw, 2.4rem);
+            margin-bottom: 0.25rem;
         }
 
         .account-name {
-            font-size: 2rem;
-            margin-top: 0.2rem;
+            font-size: 1.5rem;
+            margin-top: 0.1rem;
         }
 
         .section-title {
-            font-size: 2.1rem;
+            font-size: 1.8rem;
         }
 
         .overview-copy,
@@ -193,12 +193,12 @@ def inject_styles() -> None:
             font-family: 'Barlow Condensed', sans-serif;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
 
         div[data-testid='stMetricValue'] {
             font-family: 'Barlow Condensed', sans-serif;
-            font-size: 2.35rem;
+            font-size: 2rem;
         }
 
         div[data-testid='stForm'],
@@ -285,6 +285,38 @@ def convert_distance_from_km(distance_km: float, unit: str) -> float:
     if unit == 'Miles':
         return round(distance_km / KM_PER_MILE, 2)
     return round(distance_km, 2)
+
+
+def format_pace_seconds(seconds_per_km: float | None, unit: str) -> str:
+    if not seconds_per_km or seconds_per_km <= 0:
+        return '--:--'
+    pace_seconds = seconds_per_km * KM_PER_MILE if unit == 'Miles' else seconds_per_km
+    minutes = int(pace_seconds // 60)
+    seconds = int(round(pace_seconds % 60))
+    if seconds == 60:
+        minutes += 1
+        seconds = 0
+    suffix = '/mi' if unit == 'Miles' else '/km'
+    return f'{minutes}:{seconds:02d}{suffix}'
+
+
+def build_goal_line(current_user: dict[str, object], unit: str) -> str:
+    parts: list[str] = []
+    weekly_goal = current_user.get('goal_weekly_distance_km')
+    pace_goal = current_user.get('goal_avg_pace_seconds')
+    frequency_goal = current_user.get('goal_training_frequency')
+    unit_label = 'mi' if unit == 'Miles' else 'km'
+
+    if weekly_goal:
+        parts.append(f"{convert_distance_from_km(float(weekly_goal), unit)} {unit_label} weekly")
+    if frequency_goal is not None:
+        parts.append(f"{frequency_goal} runs")
+    if pace_goal:
+        parts.append(format_pace_seconds(float(pace_goal), unit))
+
+    if not parts:
+        return 'Set a goal to keep the momentum moving.'
+    return 'Goal: ' + ', '.join(parts)
 
 
 @st.dialog('Sign In')
@@ -414,8 +446,57 @@ def render_account_panel(current_user: dict[str, object] | None) -> None:
             st.rerun()
 
 
+def render_goal_form(current_user: dict[str, object], unit: str, client: RunningTrackerApiClient) -> None:
+    weekly_goal_km = current_user.get('goal_weekly_distance_km')
+    pace_goal_sec = current_user.get('goal_avg_pace_seconds')
+    frequency_goal = current_user.get('goal_training_frequency')
+
+    weekly_default = convert_distance_from_km(float(weekly_goal_km), unit) if weekly_goal_km else 0.0
+    frequency_default = int(frequency_goal) if frequency_goal is not None else 0
+
+    if pace_goal_sec:
+        pace_seconds = float(pace_goal_sec) * KM_PER_MILE if unit == 'Miles' else float(pace_goal_sec)
+        pace_minutes_default = int(pace_seconds // 60)
+        pace_seconds_default = int(round(pace_seconds % 60))
+    else:
+        pace_minutes_default = 0
+        pace_seconds_default = 0
+
+    st.markdown("<div class='section-kicker'>Goals</div>", unsafe_allow_html=True)
+    with st.form('goal_form', clear_on_submit=False):
+        goal_distance = st.number_input('Weekly distance goal', min_value=0.0, step=0.5, value=weekly_default)
+        goal_frequency = st.number_input('Weekly run count goal', min_value=0, step=1, value=frequency_default)
+        goal_col1, goal_col2 = st.columns(2)
+        with goal_col1:
+            goal_pace_minutes = st.number_input('Goal pace minutes', min_value=0, step=1, value=pace_minutes_default)
+        with goal_col2:
+            goal_pace_seconds = st.number_input('Goal pace seconds', min_value=0, max_value=59, step=1, value=pace_seconds_default)
+        submitted = st.form_submit_button('Save goals', use_container_width=True)
+
+        if submitted:
+            pace_total = int(goal_pace_minutes) * 60 + int(goal_pace_seconds)
+            pace_km = None
+            if pace_total > 0:
+                pace_km = pace_total / KM_PER_MILE if unit == 'Miles' else pace_total
+
+            payload = {
+                'goal_weekly_distance_km': None if goal_distance <= 0 else convert_distance_to_km(float(goal_distance), unit),
+                'goal_avg_pace_seconds': pace_km,
+                'goal_training_frequency': None if goal_frequency <= 0 else int(goal_frequency),
+            }
+
+            try:
+                updated_user = client.update_goals(current_user['id'], payload)
+                st.session_state.current_user = updated_user
+                st.success('Goals updated.')
+                st.rerun()
+            except ApiError as exc:
+                st.error(f'Could not update goals: {exc}')
+
+
 def render_overview(current_user: dict[str, object], unit: str) -> None:
     unit_label = 'mi' if unit == 'Miles' else 'km'
+    goal_line = build_goal_line(current_user, unit)
     st.markdown(
         f"""
         <div class='overview-shell'>
@@ -426,7 +507,7 @@ def render_overview(current_user: dict[str, object], unit: str) -> None:
                 </div>
                 <div class='mini-pill'>{unit_label} mode</div>
             </div>
-            <p class='overview-copy'>Log a session fast and keep your block moving.</p>
+            <p class='overview-copy'>{goal_line}</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -521,6 +602,8 @@ def main() -> None:
                 st.error(f'Could not load stats: {exc}')
     with top_right:
         render_account_panel(current_user)
+        if current_user is not None:
+            render_goal_form(current_user, st.session_state.distance_unit, client)
 
     with st.sidebar:
         st.markdown("<div class='eyebrow'>Control Room</div>", unsafe_allow_html=True)

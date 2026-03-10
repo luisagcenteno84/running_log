@@ -21,6 +21,9 @@ class UserRepository:
             name=payload['name'],
             email=payload['email'],
             password_hash=payload.get('password_hash'),
+            goal_weekly_distance_km=payload.get('goal_weekly_distance_km'),
+            goal_avg_pace_seconds=payload.get('goal_avg_pace_seconds'),
+            goal_training_frequency=payload.get('goal_training_frequency'),
             created_at=payload.get('created_at'),
         )
 
@@ -29,6 +32,9 @@ class UserRepository:
             'name': user.name,
             'email': user.email,
             'password_hash': user.password_hash,
+            'goal_weekly_distance_km': user.goal_weekly_distance_km,
+            'goal_avg_pace_seconds': user.goal_avg_pace_seconds,
+            'goal_training_frequency': user.goal_training_frequency,
             'created_at': user.created_at or datetime.now(timezone.utc),
         }
 

@@ -22,11 +22,20 @@ class UserPasswordReset(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class UserGoalsUpdate(BaseModel):
+    goal_weekly_distance_km: float | None = Field(default=None, ge=0)
+    goal_avg_pace_seconds: float | None = Field(default=None, gt=0)
+    goal_training_frequency: int | None = Field(default=None, ge=0)
+
+
 class UserRead(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     created_at: datetime
+    goal_weekly_distance_km: float | None = None
+    goal_avg_pace_seconds: float | None = None
+    goal_training_frequency: int | None = None
 
 
 class UserSummary(BaseModel):
